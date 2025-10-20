@@ -2,7 +2,7 @@
   "name": "always-screencast",
   "displayName": "Always Screencast",
   "description": "Automatically keeps VS Code Screencast Mode enabled on every startup.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "kargnas",
   "engines": {
     "vscode": "^1.80.0"
