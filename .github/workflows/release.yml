@@ -21,11 +21,11 @@ permissions:
 
 env:
   RELEASE_INCREMENT: ${{ vars.RELEASE_INCREMENT || 'patch' }}
-  DISPATCH_INCREMENT: ${{ github.event.inputs.increment || '' }}
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release')
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -47,14 +47,54 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
+      - name: Determine version increment
+        id: increment
+        run: |
+          set -eo pipefail
+          manual_input="${{ github.event.inputs.increment }}"
+          if [ -n "$manual_input" ]; then
+            echo "increment=$manual_input" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          default_increment="${RELEASE_INCREMENT:-patch}"
+          current_version=$(node -p "require('./package.json').version")
+          major=${current_version%%.*}
+          rest=${current_version#*.}
+          minor=${rest%%.*}
+          prefix="v${major}.${minor}."
+          first_tag=$(git tag --list "${prefix}*" --sort=version:refname | head -n 1)
+
+          if [ -z "$first_tag" ]; then
+            echo "increment=$default_increment" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          total=0
+          while IFS="\t" read -r added removed path; do
+            if [ "$added" = "-" ] || [ "$removed" = "-" ]; then
+              continue
+            fi
+            total=$((total + added + removed))
+          done < <(git diff --numstat "$first_tag"..HEAD -- . \
+            ":(exclude)*.css" \
+            ":(exclude)*.md" \
+            ":(exclude)*.html" \
+            ":(exclude)index.json")
+
+          if [ "$total" -ge 500 ]; then
+            echo "increment=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "increment=$default_increment" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Bump version and create tag
         id: version
+        env:
+          INCREMENT: ${{ steps.increment.outputs.increment }}
         run: |
-          increment="$DISPATCH_INCREMENT"
-          if [ -z "$increment" ] || [ "$increment" = "default" ]; then
-            increment="${RELEASE_INCREMENT:-patch}"
-          fi
-          version_ref=$(npm version "$increment" -m "chore: release v%s")
+          set -eo pipefail
+          version_ref=$(npm version "$INCREMENT" -m "chore: release v%s")
           version="${version_ref#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
