@@ -1,0 +1,77 @@
+name: Release VSIX
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: 'Version bump (patch/minor/major)'
+        required: false
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_INCREMENT: ${{ vars.RELEASE_INCREMENT || 'patch' }}
+  DISPATCH_INCREMENT: ${{ github.event.inputs.increment || '' }}
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git author
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Bump version and create tag
+        id: version
+        run: |
+          increment="$DISPATCH_INCREMENT"
+          if [ -z "$increment" ] || [ "$increment" = "default" ]; then
+            increment="${RELEASE_INCREMENT:-patch}"
+          fi
+          version_ref=$(npm version "$increment" -m "chore: release v%s")
+          version="${version_ref#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Package VSIX
+        run: npx @vscode/vsce package --out ./dist
+
+      - name: Push commit and tag
+        run: |
+          git push origin HEAD
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          files: dist/*.vsix
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
