@@ -19,13 +19,13 @@ VS Code 확장으로, 에디터를 실행할 때마다 Screencast Mode를 강제
 
 - VS Code 1.80 이상에서 동작하도록 타깃을 지정했다.
 - 로직은 `out/extension.js` 에 위치하며, 활성화될 때 한 번만 설정을 업데이트한다.
-- Node.js 20 LTS 이상에서 `npm install` 을 실행하면 추가 설정 없이 즉시 준비가 끝난다.
+- Node.js 24.22.1 이상에서 `npm install` 을 실행하면 추가 설정 없이 즉시 준비가 끝난다.
 
 ## 패키징 (VSIX)
 
-1. Node.js 20 LTS 이상 환경에서 `npm run install:vscode` 를 실행하면 VSIX 생성과 VS Code 설치가 연속으로 진행된다.
+1. Node.js 24.22.1 이상 환경에서 `npm run install:vscode` 를 실행하면 VSIX 생성과 VS Code 설치가 연속으로 진행된다.
    - 내부적으로 `npx --yes @vscode/vsce package` → `code --install-extension always-screencast-*.vsix` 순서로 동작한다.
-   - Node 20 미만 버전에서는 `vsce` 가 정상 동작하지 않으므로, 반드시 Node 업데이트 후 실행해야 한다.
+   - 이 저장소의 개발·CI 런타임은 Node.js 24.22.1 이다. 그 미만 버전에서는 실행하지 않는다.
 
 생성된 VSIX 파일은 확장 보기(`Extensions: Install from VSIX...`)에서 설치할 수 있다.
 
